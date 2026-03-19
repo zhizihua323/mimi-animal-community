@@ -125,7 +125,7 @@ const loading = ref(false);
 // 地址信息
 const address = ref(null);
 
-// 新增：用于存储选中的地址
+// 用于存储选中的地址
 const selectedAddress = ref(null);
 
 // 支付方式
@@ -134,110 +134,82 @@ const selectedMethod = ref('wechat');
 // 支付成功弹窗状态
 const showSuccess = ref(false);
 
-; // 显式分号，解决解析歧义
-
 // 页面加载时获取参数
 onLoad((options)=>{
-	// 解析URL参数（增加容错处理）
-	if (options && options.id) { // 先判断options是否存在
-	  orderId.value = options.id;
-	} else {
-	  console.warn('未接收到订单ID');
-	  // 可选：跳转回上一页或显示错误提示
-	  // uni.navigateBack();
-	}
-	console.log("options",options)
-	if (options && options.goodsName) {
-	
-	  try {
-	    goodsName.value = decodeURIComponent(options.goodsName);
-	  } catch (e) {
-	    console.error('商品名称解码失败：', e);
-	    goodsName.value = '未知商品'; // 默认值
-	  }
-	} else {
-	  goodsName.value = '未知商品'; // 默认值
-	}
-	// 只有当orderId存在时，才请求订单详情
-	if (orderId.value) {
-	  fetchOrderDetails(orderId.value);
-	}
-	fetchUserAddress();
-	
-	
-	uni.$on('addressSelected', (selectedAddr) => {
-	    address.value = selectedAddr; // 通过 .value 赋值，触发响应式
-	  });
-	
+  if (options && options.id) { 
+    orderId.value = options.id;
+  } else {
+    console.warn('未接收到订单ID');
+  }
+  
+  if (options && options.goodsName) {
+    try {
+      goodsName.value = decodeURIComponent(options.goodsName);
+    } catch (e) {
+      goodsName.value = '未知商品'; 
+    }
+  } else {
+    goodsName.value = '未知商品';
+  }
+  
+  if (orderId.value) {
+    fetchOrderDetails(orderId.value);
+  }
+  fetchUserAddress();
+  
+  uni.$on('addressSelected', (selectedAddr) => {
+    address.value = selectedAddr; 
+  });
 }) 
 
 onUnload(() =>{
-	// 2. 页面卸载时移除监听，避免内存泄漏
-	uni.$off('addressSelected');
+  uni.$off('addressSelected');
 })
 
-// 模拟获取订单详情
+// 获取真实的订单详情
 const fetchOrderDetails = async(id) => {
-  // 实际项目中这里会调用接口
-  price.value = 89.99;
-  num.value = 1;
-  freight.value = 10;
-  // 根据商品名称设置对应的图片
-  setGoodsImage(goodsName.value);
-  
   try {
-    loading.value = true // 显示加载状态
-    // 传递分页参数
+    loading.value = true;
     const response = await queryGetOrder(id);
-    // 假设后端返回格式为 { records: [], total: 0, ... }
-	console.log("响应结果",response.data)
-	price.value = response.data.price;
-	num.value = response.data.num;
-	freight.value = response.data.num;
-	setGoodsImage(response.data.goodsUrl);
-    // total.value = response.total
+    const resData = response.data || response;
+    
+    console.log("订单详情响应结果", resData);
+    
+    // 赋值真实数据
+    price.value = resData.price;
+    num.value = resData.num;
+    freight.value = resData.freight; // 修复了这里错绑成 num 的问题
+    setGoodsImage(resData.goodsUrl);
+    
   } catch (error) {
-    console.error('处理数据失败:', error)
+    console.error('获取订单详情失败:', error);
   } finally {
-    loading.value = false // 关闭加载状态
+    loading.value = false;
   }
-  
-  
 };
 
-// 根据商品名称设置图片
+// 设置图片
 const setGoodsImage = (url) => {
-  // if (name.includes('猫粮')) {
-  //   goodsImage.value = 'https://picsum.photos/seed/catfood/300/300';
-  // } else if (name.includes('狗粮')) {
-  //   goodsImage.value = 'https://picsum.photos/seed/dogfood/300/300';
-  // } else if (name.includes('玩具')) {
-  //   goodsImage.value = 'https://picsum.photos/seed/pettoy/300/300';
-  // } else {
-  //   goodsImage.value = 'https://picsum.photos/seed/petproduct/300/300';
-  // }
-  goodsImage.value = url
+  if(url) {
+    goodsImage.value = url;
+  }
 };
 
-// 模拟获取用户地址
+// 获取真实用户地址
 const fetchUserAddress = async() => {
-  // 实际项目中这里会调用接口获取用户地址列表
-  address.value = {
-    name: '小可爱',
-    tel: '138****5678',
-    address: '北京市朝阳区某某小区1号楼2单元301室'
-  };
-  
   try {
-    loading.value = true // 显示加载状态
-    // 传递分页参数
+    loading.value = true;
     const response = await queryGetAddress();
-    address.value = response.data[1]
-  	
+    const resData = response.data || response;
+    
+    // 修复数组越界问题：寻找默认地址，如果没找到就取第一个
+    if (resData && resData.length > 0) {
+      address.value = resData.find(item => item.isDefault === 1) || resData[0];
+    }
   } catch (error) {
-    console.error('处理数据失败:', error)
+    console.error('获取地址失败:', error);
   } finally {
-    loading.value = false // 关闭加载状态
+    loading.value = false;
   }
 };
 
@@ -250,18 +222,12 @@ const navigateBack = () => {
 
 // 选择地址
 const chooseAddress = () => {
-  // 实际项目中这里会跳转到地址选择页面
-  uni.showToast({
-    title: '跳转到地址选择',
-    icon: 'none'
-  });
-  
   uni.navigateTo({
-  	url: "/pages/address_selected/address_selected"
+    url: "/pages/address_selected/address_selected"
   })
 };
 
-// 提交支付
+// 提交支付（模拟）
 const submitPayment = () => {
   if (!address.value) {
     uni.showToast({
@@ -271,14 +237,18 @@ const submitPayment = () => {
     return;
   }
   
-  // 模拟支付过程
   uni.showLoading({
-    title: '支付中...'
+    title: '支付处理中...'
   });
   
+  // 模拟支付网络请求延迟
+  // 在 shopping_pay.vue 里的 submitPayment 中补充：
   setTimeout(() => {
     uni.hideLoading();
-    // 显示支付成功弹窗
+    
+    // 补充这行核心逻辑：调用一个改变状态的接口
+    await updateOrderStatus(orderId.value, 1); 
+    
     showSuccess.value = true;
   }, 1500);
 };
@@ -286,7 +256,7 @@ const submitPayment = () => {
 // 前往订单列表
 const gotoOrderList = () => {
   showSuccess.value = false;
-  // 跳转到订单列表页面
+  // 跳转到订单列表
   uni.navigateTo({
     url: '/pages/order_list/order_list'
   });

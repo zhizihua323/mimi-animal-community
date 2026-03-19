@@ -137,6 +137,34 @@ public class OrderController {
         }
     }
 
+    @PutMapping
+    public Result updateOrderStatus(@RequestBody Order order) {
+        if (order.getId() == null) {
+            return Result.error("订单ID不能为空");
+        }
+
+        // 安全校验：确保订单存在，且只能修改当前登录用户的订单
+        User user = UserContextThreadLocal.getUser();
+        Order existOrder = orderService.getById(order.getId());
+        if (existOrder == null || !Objects.equals(user.getId(), existOrder.getUserId())) {
+            return Result.error("没有权限或订单不存在");
+        }
+
+        // 如果前端传来的是支付成功 (status = 1)，顺便把支付时间补上
+        if (order.getStatus() != null && order.getStatus() == 1) {
+            order.setPayTime(LocalDateTime.now());
+        }
+
+        // 调用 MyBatis-Plus 的 updateById 方法（只会更新非 null 的字段）
+        boolean updateSuccess = orderService.updateById(order);
+
+        if (updateSuccess) {
+            return Result.ok("订单状态更新成功");
+        } else {
+            return Result.error("订单状态更新失败");
+        }
+    }
+
 //    public Boolean updateGoodsStone(String id){
 //        String cacheKey = RedisConstant.ORDER_STOCK_KEY_NX + id;
 //        String token = UUID.randomUUID().toString();

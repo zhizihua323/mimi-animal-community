@@ -102,213 +102,125 @@ import { ref, computed, onMounted } from 'vue';
 import { queryGetGoods, queryGetCategoryFamily} from "@/services/shopping/shopping.js"
 import { addPostOrder } from "@/services/shopping/order.js"
 
-onMounted(async()=>{
-	getCategoryFamily();
-	getGoods();
-})
-
-const postOrder = async(order) =>{
-	try{
-		loading.value = true // 显示加载状态
-		const response = await addPostOrder(order);
-		return response.data
-		
-	}catch (error) {
-		console.error('处理数据失败:', error)
-	} finally {
-		loading.value = false // 关闭加载状态
-	}
-}
-
-const getCategoryFamily = async () => {
-  try {
-    loading.value = true // 显示加载状态
-    // 传递分页参数
-    const response = await queryGetCategoryFamily()
-
-    // total.value = response.total
-  } catch (error) {
-    console.error('处理数据失败:', error)
-  } finally {
-    loading.value = false // 关闭加载状态
-  }
-}
-
-const getGoods = async () => {
-  try {
-    loading.value = true // 显示加载状态
-    // 传递分页参数
-    const response = await queryGetGoods()
-    
-    // 假设后端返回格式为 { records: [], total: 0, ... }
-    goodsList.value = response.data.records
-	console.log("animals的值",animals.value)
-    // total.value = response.total
-  } catch (error) {
-    console.error('处理数据失败:', error)
-  } finally {
-    loading.value = false // 关闭加载状态
-  }
-}
-
-
-// 模拟分类数据
-const categories = ref([
-  { id: 1, category: '全部商品', color: '#FF9EBB' },
-  { id: 2, category: '美妆护肤', color: '#A8DADC' },
-  { id: 3, category: '家居用品', color: '#FFD6BA' },
-  { id: 4, category: '数码配件', color: '#B8E1FF' },
-  { id: 5, category: '服饰鞋帽', color: '#C8E6C9' },
-  { id: 6, category: '零食饮料', color: '#FFB7B2' },
-  { id: 7, category: '文具玩具', color: '#E1BEE7' }
-]);
-
-const loading = ref(false)
-
-// 模拟商品数据
-const goodsList = ref([
-  {
-    id: 1,
-    categoryId: 2,
-    price: 89.99,
-    material: '天然植物精华',
-    weight: 0.35,
-    picUrl: 'https://picsum.photos/seed/cosmetic1/300/300',
-    collect: 0,
-    stringId: 'g001'
-  },
-  {
-    id: 2,
-    categoryId: 3,
-    price: 45.50,
-    material: '环保陶瓷',
-    weight: 1.2,
-    picUrl: 'https://picsum.photos/seed/home1/300/300',
-    collect: 1,
-    stringId: 'g002'
-  },
-  {
-    id: 3,
-    categoryId: 4,
-    price: 129.00,
-    material: '硅胶材质',
-    weight: 0.2,
-    picUrl: 'https://picsum.photos/seed/digital1/300/300',
-    collect: 0,
-    stringId: 'g003'
-  },
-  {
-    id: 4,
-    categoryId: 5,
-    price: 199.99,
-    material: '纯棉面料',
-    weight: 0.5,
-    picUrl: 'https://picsum.photos/seed/clothes1/300/300',
-    collect: 0,
-    stringId: 'g004'
-  },
-  {
-    id: 5,
-    categoryId: 6,
-    price: 25.80,
-    material: '进口原料',
-    weight: 0.15,
-    picUrl: 'https://picsum.photos/seed/food1/300/300',
-    collect: 1,
-    stringId: 'g005'
-  },
-  {
-    id: 6,
-    categoryId: 7,
-    price: 36.00,
-    material: '安全塑料',
-    weight: 0.4,
-    picUrl: 'https://picsum.photos/seed/stationery1/300/300',
-    collect: 0,
-    stringId: 'g006'
-  },
-  {
-    id: 7,
-    categoryId: 2,
-    price: 68.50,
-    material: '有机成分',
-    weight: 0.25,
-    picUrl: 'https://picsum.photos/seed/cosmetic2/300/300',
-    collect: 0,
-    stringId: 'g007'
-  },
-  {
-    id: 8,
-    categoryId: 3,
-    price: 89.00,
-    material: '优质木材',
-    weight: 1.8,
-    picUrl: 'https://picsum.photos/seed/home2/300/300',
-    collect: 1,
-    stringId: 'g008'
-  }
-]);
-
 // 状态管理
 const activeCategory = ref(0);
 const showDetail = ref(false);
 const currentGoods = ref(null);
+const loading = ref(false);
 
-// 过滤商品列表
+// 数据源
+const categories = ref([
+  { id: null, category: '全部商品', color: '#FF9EBB' } // 默认保留一个全部商品
+]);
+const goodsList = ref([]);
+
+onMounted(() => {
+  getCategoryFamily();
+  getGoods();
+})
+
+// 获取真实分类数据
+const getCategoryFamily = async () => {
+  try {
+    const response = await queryGetCategoryFamily();
+    // 兼容取值：如果是用 axios/http 封装，可能数据在 response.data 或者 data.data
+    const resData = response.data || response;
+    
+    if (resData && resData.length > 0) {
+      // 预设一些好看的颜色池
+      const colors = ['#FF9EBB', '#A8DADC', '#FFD6BA', '#B8E1FF', '#C8E6C9', '#FFB7B2', '#E1BEE7'];
+      
+      // 将后端真实的分类数据映射到前端
+      const backendCategories = resData.map((item, index) => ({
+        id: item.id,
+        category: item.category || item.name, // 适配后端的字段名
+        color: colors[index % colors.length]
+      }));
+      
+      // 把“全部商品”固定在最前面
+      categories.value = [{ id: null, category: '全部商品', color: '#FF9EBB' }, ...backendCategories];
+    }
+  } catch (error) {
+    console.error('获取分类失败:', error);
+  }
+}
+
+// 获取真实商品数据
+const getGoods = async () => {
+  try {
+    loading.value = true;
+    const response = await queryGetGoods();
+    
+    // 兼容后端返回格式 (可能带分页 records，也可能是普通数组)
+    const records = response.data?.records || response.data || [];
+    goodsList.value = records;
+    
+    console.log("获取到的商品数据：", goodsList.value);
+  } catch (error) {
+    console.error('获取商品数据失败:', error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 提交订单
+const postOrder = async(order) => {
+  try {
+    loading.value = true;
+    const response = await addPostOrder(order);
+    return response.data || response;
+  } catch (error) {
+    console.error('提交订单失败:', error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 过滤商品列表 (点击分类时动态切换)
 const filteredGoods = computed(() => {
-  if (activeCategory.value === 0) {
+  if (activeCategory.value === 0 || !categories.value[activeCategory.value]?.id) {
     return goodsList.value;
   }
   const categoryId = categories.value[activeCategory.value].id;
   return goodsList.value.filter(goods => goods.categoryId === categoryId);
 });
 
-// 方法
+// 收藏商品逻辑
 const toggleCollect = (goods, index) => {
+  // 直接修改数据状态，Vue会自动更新视图
   goods.collect = goods.collect > 0 ? 0 : 1;
-  // 添加收藏动画效果
-  const element = document.querySelector(`.goods-card:nth-child(${index + 1}) .collect-icon`);
-  if (element) {
-    element.classList.add('bounce');
-    setTimeout(() => {
-      element.classList.remove('bounce');
-    }, 500);
-  }
+  // ⚠️ 删除了 document.querySelector，彻底规避小程序报错问题！
 };
 
+// 显示商品详情
 const showGoodsDetail = (goods) => {
   currentGoods.value = { ...goods };
   showDetail.value = true;
 };
 
+// 获取分类名称 (用于详情页展示)
 const getCategoryName = (categoryId) => {
   const category = categories.value.find(cat => cat.id === categoryId);
   return category ? category.category : '未知分类';
 };
 
+// 加入购物车/立即购买
 const addCart = async(currentGoods) => {
-  // 模拟加入购物车动画
-  // const button = document.querySelector('.add-to-cart');
-  // button.classList.add('added');
-  // setTimeout(() => {
-  //   button.classList.remove('added');
-  //   showDetail.value = false;
-  //   // 这里可以添加实际加入购物车的逻辑
-  // }, 1000);
   const order = await postOrder({
-	  goodsId:currentGoods.id,
-	  goodsName:currentGoods.goodsName
+    goodsId: currentGoods.id,
+    goodsName: currentGoods.goodsName
   });
   
-  uni.navigateTo({
-    // 正确格式：?key1=value1&key2=value2（无空格，用&连接）
-    url: `/pages/shopping_pay/shopping_pay?id=${order.stringId}&goodsName=${encodeURIComponent(order.goodsName)}`,
-    fail: (err) => {
-      console.error('跳转到订单支付页失败：', err);
-      uni.showToast({ title: '跳转失败，请重试', icon: 'none' });
-    }
-  });
-  
+  if (order) {
+    uni.navigateTo({
+      // 正确格式：?key1=value1&key2=value2
+      url: `/pages/shopping_pay/shopping_pay?id=${order.stringId || order.id}&goodsName=${encodeURIComponent(currentGoods.goodsName)}`,
+      fail: (err) => {
+        console.error('跳转到订单支付页失败：', err);
+        uni.showToast({ title: '跳转失败，请重试', icon: 'none' });
+      }
+    });
+  }
 };
 </script>
 

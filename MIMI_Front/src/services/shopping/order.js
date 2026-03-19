@@ -53,3 +53,22 @@ export const queryGetOrder = async(id) => {
 	  throw error // 继续向上抛出错误，让调用方处理
 	}
 }
+
+// 更新订单状态接口 (用于支付成功、发货、取消订单等操作)
+export const updateOrderStatus = async (id, status) => {
+  try {
+    const res = await http({
+      method: "PUT", 
+      url: "/shopping/order", 
+      data: {
+        id: id,
+        status: status
+      }
+    })
+    console.log('订单状态更新成功:', res)
+    return res
+  } catch (error) {
+    console.error('订单状态更新失败:', error)
+    throw error
+  }
+}

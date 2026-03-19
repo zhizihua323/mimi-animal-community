@@ -149,7 +149,7 @@
 
 <script setup>
 import { ref, onUnmounted, computed } from 'vue';
-import { onLoad } from '@dcloudio/uni-app'; 
+import { onLoad, onShow } from '@dcloudio/uni-app'; 
 import { listPostOrder } from '@/services/shopping/order.js'
 
 // 订单列表数据
@@ -158,10 +158,10 @@ const orderList = ref([]);
 const activeTab = ref('all');
 // 定时器集合（用于多订单分别计时）
 const timers = ref({});
-const loading = ref(false)
+const loading = ref(false);
 
-// 页面加载时获取订单数据
-onLoad(() => {
+// 页面加载和每次显示时，都重新获取最新订单
+onShow(() => {
   fetchOrders();
 });
 
@@ -172,211 +172,106 @@ onUnmounted(() => {
   });
 });
 
-// 获取订单列表数据
+// 获取真实的订单列表数据
 const fetchOrders = async() => {
-  // 模拟从接口获取数据
-  orderList.value = [
-    {
-      id: 1962863412305817600,
-      stringId: '1962863412305817600',
-      userId: 1961677606954274800,
-      userOpenid: 'o6_bmjrPTlm6_2sgVt7hMZOPfL2M',
-      userAddress: '北京市朝阳区某某小区',
-      status: 0, // 0-待付款, 1-已付款, 2-已发货, 3-已完成, 4-已取消
-      orderTime: new Date(Date.now() - 30 * 1000).toISOString(), // 30秒前下单
-      payTime: '',
-      deliverTime: '',
-      receivedTime: '',
-      goodsName: '天然无谷狗粮 2kg',
-      price: 129.99,
-      num: 1,
-      freight: 8,
-      tel: '138****5678',
-      goodsId: 'g1001',
-      goodsUrl: 'https://picsum.photos/seed/dogfood/300/300',
-      isExpired: false,
-      remainingSeconds: 30 // 剩余30秒
-    },
-    {
-      id: 1962863412305817601,
-      stringId: '1962863412305817601',
-      userId: 1961677606954274800,
-      userOpenid: 'o6_bmjrPTlm6_2sgVt7hMZOPfL2M',
-      userAddress: '上海市浦东新区某某街道',
-      status: 0,
-      orderTime: new Date(Date.now() - 55 * 1000).toISOString(), // 55秒前下单
-      payTime: '',
-      deliverTime: '',
-      receivedTime: '',
-      goodsName: '猫咪益智玩具套装',
-      price: 45.50,
-      num: 2,
-      freight: 6,
-      tel: '139****8765',
-      goodsId: 'g1002',
-      goodsUrl: 'https://picsum.photos/seed/pettoy/300/300',
-      isExpired: false,
-      remainingSeconds: 5 // 剩余5秒（即将过期）
-    },
-    {
-      id: 1962863412305817602,
-      stringId: '1962863412305817602',
-      userId: 1961677606954274800,
-      userOpenid: 'o6_bmjrPTlm6_2sgVt7hMZOPfL2M',
-      userAddress: '广州市天河区某某路',
-      status: 0,
-      orderTime: new Date(Date.now() - 70 * 1000).toISOString(), // 70秒前下单
-      payTime: '',
-      deliverTime: '',
-      receivedTime: '',
-      goodsName: '宠物自动饮水机',
-      price: 89.00,
-      num: 1,
-      freight: 10,
-      tel: '137****4321',
-      goodsId: 'g1003',
-      goodsUrl: 'https://picsum.photos/seed/petproduct/300/300',
-      isExpired: true,
-      remainingSeconds: 0 // 已过期
-    },
-    {
-      id: 1962863412305817603,
-      stringId: '1962863412305817603',
-      userId: 1961677606954274800,
-      userOpenid: 'o6_bmjrPTlm6_2sgVt7hMZOPfL2M',
-      userAddress: '深圳市南山区某某大道',
-      status: 1,
-      orderTime: new Date(Date.now() - 3600 * 1000).toISOString(), // 1小时前下单
-      payTime: new Date(Date.now() - 3540 * 1000).toISOString(),
-      deliverTime: '',
-      receivedTime: '',
-      goodsName: '宠物指甲剪套装',
-      price: 29.90,
-      num: 1,
-      freight: 5,
-      tel: '136****9876',
-      goodsId: 'g1004',
-      goodsUrl: 'https://picsum.photos/seed/pettoy/300/300',
-      isExpired: false,
-      remainingSeconds: 0
-    }
-  ];
-  
-  
   try {
-      loading.value = true; // 显示加载状态
-      // 1. 调用接口获取真实数据（删除模拟数据覆盖逻辑）
-      const response = await listPostOrder();
-      // 2. 拿到接口返回的原始数据（response.data 是你的订单数组）
-      const rawOrderList = response.data; 
+    loading.value = true;
+    
+    // 1. 调用接口获取真实数据
+    const response = await listPostOrder();
+    
+    // 兼容后端返回格式 (可能是 records 数组，也可能是直接的数组)
+    const rawOrderList = response.data?.records || response.data || []; 
+    
+    // 2. 数据清洗与倒计时计算
+    orderList.value = rawOrderList.map(order => {
+      const orderDate = parseBackendTime(order.orderTime || order.createTime); // 兼容时间字段名
       
-      // 3. 关键：对每个订单进行时间解析和倒计时计算（核心修复点）
-      orderList.value = rawOrderList.map(order => {
-        // 3.1 解析后端返回的 orderTime（格式："2025-09-04 13:44:22"）
-        const orderDate = parseBackendTime(order.orderTime);
-        
-        // 3.2 时间解析失败的降级处理（避免 NaN）
-        if (!orderDate) {
-          return { 
-            ...order, 
-            isExpired: true,    // 标记为已过期
-            remainingSeconds: 0 // 剩余时间设为 0
-          };
-        }
-        
-        // 3.3 计算过期时间（下单时间 + 1分钟，根据业务需求调整）
-        const expiryTime = new Date(orderDate.getTime() + 60 * 1000);
-        // 3.4 计算当前剩余秒数（当前时间 - 过期时间）
-        const now = new Date();
-        const remainingSeconds = Math.floor((expiryTime - now) / 1000);
-        
-        // 3.5 返回处理后的订单数据（新增 isExpired 和 remainingSeconds 字段）
-        return {
-          ...order,
-          isExpired: remainingSeconds <= 0, // 剩余时间<=0 标记为已过期
-          remainingSeconds: remainingSeconds > 0 ? remainingSeconds : 0 // 确保非负
+      if (!orderDate) {
+        return { 
+          ...order, 
+          isExpired: true,    
+          remainingSeconds: 0 
         };
-      });
+      }
       
-      // 4. 启动所有待付款订单的倒计时
-      startCountdowns();
+      // 假设订单 30 分钟未支付即过期 (30 * 60 * 1000)
+      const expiryTime = new Date(orderDate.getTime() + 30 * 60 * 1000);
+      const now = new Date();
+      const remainingSeconds = Math.floor((expiryTime - now) / 1000);
       
-    } catch (error) {
-      console.error('获取订单列表失败:', error);
-      // 异常处理：显示空状态或错误提示
-      orderList.value = [];
-      uni.showToast({ title: '获取订单失败', icon: 'none' });
-    } finally {
-      loading.value = false; // 关闭加载状态
-    }
-
-
-  // 为每个待付款订单启动倒计时
-  startCountdowns();
+      return {
+        ...order,
+        // 如果后端状态本身就是取消(4)，或者时间到了且还未付款(0)，则标记为过期
+        isExpired: order.status === 4 || (order.status === 0 && remainingSeconds <= 0),
+        remainingSeconds: remainingSeconds > 0 ? remainingSeconds : 0
+      };
+    });
+    
+    // 3. 按照下单时间倒序排列（最新的订单在最上面）
+    orderList.value.sort((a, b) => {
+       const timeA = parseBackendTime(a.orderTime || a.createTime)?.getTime() || 0;
+       const timeB = parseBackendTime(b.orderTime || b.createTime)?.getTime() || 0;
+       return timeB - timeA;
+    });
+    
+    // 4. 启动待付款订单的倒计时
+    startCountdowns();
+    
+  } catch (error) {
+    console.error('获取订单列表失败:', error);
+    orderList.value = [];
+  } finally {
+    loading.value = false;
+  }
 };
 
-// 工具函数：解析后端时间字符串为 Date 对象（保持不变，但确保调用）
+// 解析后端时间字符串为 Date 对象
 const parseBackendTime = (timeStr) => {
   if (!timeStr) return null;
-  // 关键：将 "2025-09-04 13:44:22" 转为 Date 可识别的 "2025-09-04T13:44:22"
+  // 兼容带有 'T' 或者 ' ' 的日期格式
   const isoTimeStr = timeStr.replace(' ', 'T');
   const date = new Date(isoTimeStr);
-  // 验证解析结果：如果是 Invalid Date，返回 null
   return isNaN(date.getTime()) ? null : date;
 };
 
-// 格式化倒计时时间（增加异常处理，避免 NaN）
-// const formatTime = (seconds) => {
-//   // 关键：处理 undefined、null 或非数字的情况
-//   if (isNaN(seconds) || seconds < 0) {
-//     return "00:00";
-//   }
-//   const mins = Math.floor(seconds / 60);
-//   const secs = seconds % 60;
-//   // 确保数字补零（如 5 → "05"）
-//   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-// };
-
-// 启动所有待付款订单的倒计时
+// 启动待付款订单的倒计时
 const startCountdowns = () => {
   orderList.value.forEach((order, index) => {
     if (order.status === 0 && !order.isExpired) {
-      // 清除已有定时器
       if (timers.value[index]) {
         clearInterval(timers.value[index]);
       }
 
-      // 创建新定时器
       timers.value[index] = setInterval(() => {
         orderList.value[index].remainingSeconds--;
         
-        // 倒计时结束
         if (orderList.value[index].remainingSeconds <= 0) {
           orderList.value[index].remainingSeconds = 0;
           orderList.value[index].isExpired = true;
+          // 可选：这里可以悄悄发个请求告诉后端订单过期了
           clearInterval(timers.value[index]);
-          // 可以在这里调用接口更新订单状态
         }
       }, 1000);
     }
   });
 };
 
-// 根据标签筛选订单
+// 根据标签筛选订单 (核心状态映射)
 const filteredOrders = computed(() => {
   if (activeTab.value === 'all') return orderList.value;
   
   return orderList.value.filter(order => {
     if (activeTab.value === 'pending') {
-      return order.status === 0; // 待付款（包括已过期）
+      return order.status === 0 && !order.isExpired; // 待付款（未过期）
     }
     if (activeTab.value === 'paid') {
-      return order.status === 1 || order.status === 2; // 已付款和已发货
+      return order.status === 1 || order.status === 2; // 已付款/待发货 和 已发货
     }
     if (activeTab.value === 'completed') {
       return order.status === 3; // 已完成
     }
-    return true;
+    return false;
   });
 });
 
@@ -389,10 +284,8 @@ const formatTime = (seconds) => {
 
 // 获取订单状态文本
 const getStatusText = (order) => {
-  if (order.status === 0) {
-    return order.isExpired ? '已过期' : '待付款';
-  }
-  if (order.status === 1) return '已付款';
+  if (order.status === 0) return order.isExpired ? '已取消/过期' : '待付款';
+  if (order.status === 1) return '已付款/待发货';
   if (order.status === 2) return '已发货';
   if (order.status === 3) return '已完成';
   if (order.status === 4) return '已取消';
@@ -401,9 +294,7 @@ const getStatusText = (order) => {
 
 // 获取订单状态样式
 const getStatusClass = (order) => {
-  if (order.status === 0) {
-    return order.isExpired ? 'status-expired' : 'status-pending';
-  }
+  if (order.status === 0) return order.isExpired ? 'status-expired' : 'status-pending';
   if (order.status === 1) return 'status-paid';
   if (order.status === 2) return 'status-shipped';
   if (order.status === 3) return 'status-completed';
@@ -411,76 +302,49 @@ const getStatusClass = (order) => {
   return '';
 };
 
-// 取消订单
+// 取消订单 (仅前端隐藏，实际应该请求后端修改状态)
 const cancelOrder = (index) => {
   uni.showModal({
     title: '提示',
-    content: '确定要取消订单吗？',
+    content: '确定要取消此订单吗？',
     success: (res) => {
       if (res.confirm) {
-        // 取消定时器
-        if (timers.value[index]) {
-          clearInterval(timers.value[index]);
-        }
-        // 更新订单状态
+        if (timers.value[index]) clearInterval(timers.value[index]);
         orderList.value[index].status = 4;
-        uni.showToast({
-          title: '订单已取消',
-          icon: 'none'
-        });
+        orderList.value[index].isExpired = true;
+        uni.showToast({ title: '订单已取消', icon: 'none' });
       }
     }
   });
 };
 
-// 重新下单
+// 重新下单 -> 跳转回商城
 const reorder = (order) => {
-  // 跳转到商品详情页
-  uni.navigateTo({
-    url: `/pages/goods_detail/goods_detail?id=${order.goodsId}`
+  uni.switchTab({
+    url: '/pages/cart/cart' // 假设商城页是 tabBar
   });
 };
 
-// 前往支付页面
+// 待付款订单 -> 继续去支付
 const gotoPayment = (order) => {
   uni.navigateTo({
-    url: `/pages/shopping_pay/shopping_pay?id=${order.stringId}&goodsName=${encodeURIComponent(order.goodsName)}`
+    url: `/pages/shopping_pay/shopping_pay?id=${order.stringId || order.id}&goodsName=${encodeURIComponent(order.goodsName)}`
   });
 };
 
-// 前往订单详情
-const gotoDetail = (order) => {
-  uni.navigateTo({
-    url: `/pages/order_detail/order_detail?id=${order.stringId}`
-  });
-};
-
-// 查看物流
-const trackOrder = (order) => {
-  uni.navigateTo({
-    url: `/pages/logistics/logistics?id=${order.stringId}`
-  });
-};
-
-// 评价订单
-const reviewOrder = (order) => {
-  uni.navigateTo({
-    url: `/pages/review/review?id=${order.stringId}`
-  });
-};
+// 空白占位点击
+const gotoDetail = () => { uni.showToast({ title: '详情开发中', icon: 'none' }) };
+const trackOrder = () => { uni.showToast({ title: '物流查询开发中', icon: 'none' }) };
+const reviewOrder = () => { uni.showToast({ title: '评价功能开发中', icon: 'none' }) };
 
 // 返回上一页
 const navigateBack = () => {
-  uni.navigateBack({
-    delta: 1
-  });
+  uni.navigateBack({ delta: 1 });
 };
 
-// 去首页
+// 去逛逛
 const gotoHome = () => {
-  uni.switchTab({
-    url: '/pages/index/index'
-  });
+  uni.switchTab({ url: '/pages/cart/cart' });
 };
 </script>
 

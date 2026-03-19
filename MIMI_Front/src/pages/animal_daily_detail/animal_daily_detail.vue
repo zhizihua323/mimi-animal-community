@@ -52,7 +52,9 @@
     <view class="comments-section">
       <view class="comments-header">
         <text class="section-title">评论 ({{ comments.length }})</text>
-        <text class="sort-text">最新</text>
+        <picker :range="sortOptions" :value="sortIndex" @change="onSortChange">
+          <view class="sort-text">{{ sortOptions[sortIndex] }}</view>
+        </picker>
       </view>
       
       <!-- 评论输入框 -->
@@ -130,6 +132,32 @@ const newComment = ref('');
 // 控制输入框焦点的开关
 const isFocus = ref(false);
 
+// 下拉框专用的排序变量
+const sortOptions = ['最新', '最热'];
+const sortIndex = ref(0); // 默认选中第0项（最新）
+const sortType = ref('newest'); // 内部状态：记录当前是 newest 还是 hottest
+
+// 处理下拉框选择切换
+const onSortChange = (e) => {
+  // e.detail.value 拿到的是选择的索引 (0 或 1)
+  sortIndex.value = e.detail.value;
+  
+  if (sortIndex.value == 0) { // 选择了"最新"
+    sortType.value = 'newest';
+    const getTime = (timeStr) => {
+      if (!timeStr || timeStr === '刚刚') return Date.now();
+      return new Date(timeStr.replace(/-/g, '/')).getTime(); 
+    };
+    comments.value.sort((a, b) => getTime(b.time) - getTime(a.time));
+    uni.showToast({ title: '已按时间排序', icon: 'none' });
+    
+  } else { // 选择了"最热"
+    sortType.value = 'hottest';
+    comments.value.sort((a, b) => b.likes - a.likes);
+    uni.showToast({ title: '已按点赞量排序', icon: 'none' });
+  }
+};
+
 // 点击回复按钮触发的方法
 const onReply = (comment) => {
   newComment.value = `回复 @${comment.username}：`;
@@ -168,8 +196,6 @@ const addComment = async () => {
     // 调用 POST 接口保存到 MySQL
     const response = await addDailyComment(commentData);
     
-    // 注意：你封装的 http 返回结果可能直接就是 data，或者是包含了 code 的对象
-    // 统一做一个安全判断
     if (response.code === 200 || response.data?.code === 200 || response.message === '操作成功') {
       uni.hideLoading();
       uni.showToast({ title: '评论成功', icon: 'success' });
@@ -178,6 +204,7 @@ const addComment = async () => {
       newComment.value = '';
       
       // 评论成功后，重新拉取一次最新的评论列表！
+      // 拉取时会自动沿用当前的排序状态
       fetchComments(); 
     } else {
       throw new Error('评论失败');
@@ -189,13 +216,11 @@ const addComment = async () => {
   }
 };
 
-// 核心修改 2：获取真实评论列表 + 拼接假数据兜底展示
+// 核心修改 2：获取真实评论列表 + 拼接假数据兜底展示 + 自动排序
 const fetchComments = async () => {
   if (!id.value) return;
   try {
     const response = await getDailyCommentsList(id.value);
-    
-    // 兼容你可能封装过的 axios/http 返回格式
     const resData = response.data || response;
     
     // 1. 先把数据库里的真实数据处理好
@@ -207,7 +232,7 @@ const fetchComments = async () => {
         avatar: "https://picsum.photos/seed/user/40/40", 
         content: item.content,
         time: item.createTime ? item.createTime.replace('T', ' ') : '刚刚',
-        likes: 0,
+        likes: 0, // 新发布的真实数据默认0赞
         liked: false
       }));
     }
@@ -234,16 +259,26 @@ const fetchComments = async () => {
       }
     ];
 
-    // 3. 把真数据和假数据拼接到一起赋值给页面
-    // 这样无论是哪篇日常，都会在真实评论的下面跟着这两条假数据
+    // 3. 把真数据和假数据拼接到一起
     comments.value = [...realComments, ...fakeComments];
+
+    // 🌟 4. 新增：获取完数据后，强制按照当前选中的模式排序一次
+    if (sortType.value === 'hottest') {
+      comments.value.sort((a, b) => b.likes - a.likes);
+    } else {
+      const getTime = (timeStr) => {
+        if (!timeStr || timeStr === '刚刚') return Date.now();
+        return new Date(timeStr.replace(/-/g, '/')).getTime();
+      };
+      comments.value.sort((a, b) => getTime(b.time) - getTime(a.time));
+    }
 
   } catch (error) {
     console.error('获取评论列表失败:', error);
   }
 };
 
-// 点赞评论 (目前保留本地假点赞)
+// 点赞评论
 const likeComment = (index) => {
   if (comments.value[index].liked) {
     comments.value[index].likes--;
@@ -262,7 +297,7 @@ onLoad((options)=>{
 // 页面展示时获取详情和评论
 onShow(()=>{
   getDailyDetail();
-  fetchComments(); // 每次进入页面，都会拉取最新评论
+  fetchComments();
 })
 
 // 获取日常详情

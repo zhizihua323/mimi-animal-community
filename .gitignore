@@ -1,0 +1,38 @@
+# === Java / Maven ===
+target/
+*.class
+*.jar
+*.war
+*.ear
+# 忽略你误放进去的本地仓库和临时目录
+.m2/
+**/~/**
+maven-archiver/
+
+# === JetBrains IDE (IntelliJ IDEA) ===
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# === 前端 (Vue / UniApp / Node.js) ===
+node_modules/
+dist/
+dev/
+unpackage/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === 操作系统文件 ===
+.DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini
+
+# === 配置文件 (如果包含敏感信息) ===
+# *.yaml
+# *.properties
+# 注意：如果需要上传配置模板，请不要忽略它们，或者只忽略包含密码的本地配置

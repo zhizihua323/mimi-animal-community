@@ -1,0 +1,190 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+    }
+  },
+  "pages": [
+    //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom" ,
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/my/my",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/cart/cart",
+      "style": {
+        "navigationBarTitleText": "商城"
+      }
+    },
+    {
+      "path": "pages/category/category",
+      "style": {
+        "navigationBarTitleText": "分类"
+      }
+    },
+   //  {
+   //    "path": "pages/login/login",
+   //    "style": {
+   //      "navigationBarTitleText": "登录",
+   //      "navigationBarHidden": true // 登录页通常隐藏导航栏，避免样式冲突
+   //      }
+   //  },
+   //  {
+   //  	"path" : "pages/animalArchival/animalArchival",
+   //  	"style" : 
+   //  	{
+   //  		"navigationBarTitleText" : "动物档案",
+			// "navigationBarHidden": true
+   //  	}
+   //  },
+   //  {
+   //  	"path" : "pages/animalArchival_add/animalArchival_add",
+   //  	"style" : 
+   //  	{
+   //  		"navigationBarTitleText" : "动物档案-添加",
+   //  		"navigationBarHidden": true
+   //  	}
+   //  },
+   // TODO   Gemini修改。
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom" // 隐藏默认导航栏，使用自定义导航栏
+      }
+    },
+    {
+      "path": "pages/animalArchival/animalArchival",
+      "style": {
+        "navigationBarTitleText": "动物档案",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/animalArchival_add/animalArchival_add",
+      "style": {
+        "navigationBarTitleText": "动物档案-添加",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+    	"path" : "pages/animalArchival_updated/animalArchival_updated",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/shopping_pay/shopping_pay",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/address_list/address_list",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/address_add/address_add",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/address_selected/address_selected",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/order_list/order_list",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/animal_daily/animal_daily",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/animal_daily_add/animal_daily_add",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+    {
+    	"path" : "pages/animal_daily_detail/animal_daily_detail",
+    	"style" : 
+    	{
+    		"navigationBarTitleText" : ""
+    	}
+    },
+	{
+		"path": "pages/animal_map/animal_map",
+		"style": {
+		  "navigationBarTitleText": "地图定位",
+		  "navigationStyle": "custom"
+		}
+	}
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  // 设置 TabBar
+  "tabBar": {
+    "color": "#333",
+    "selectedColor": "#27ba9b",
+    "backgroundColor": "#fff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "text": "首页",
+        "pagePath": "pages/index/index",
+        "iconPath": "static/tabs/home_default.png",
+        "selectedIconPath": "static/tabs/home_selected.png"
+      },
+      {
+        "text": "动物循迹",
+        "pagePath": "pages/category/category",
+        "iconPath": "static/tabs/category_default.png",
+        "selectedIconPath": "static/tabs/category_selected.png"
+      },
+      {
+        "text": "商城",
+        "pagePath": "pages/cart/cart",
+        "iconPath": "static/tabs/cart_default.png",
+        "selectedIconPath": "static/tabs/cart_selected.png"
+      },
+      {
+        "text": "我的",
+        "pagePath": "pages/my/my",
+        "iconPath": "static/tabs/user_default.png",
+        "selectedIconPath": "static/tabs/user_selected.png"
+      }
+    ]
+  }
+}

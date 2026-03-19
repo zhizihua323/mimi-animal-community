@@ -1,0 +1,16 @@
+# 应用名称（必填，用于服务注册和配置中心）
+spring:
+  application:
+    name: user-service  # 自定义应用名，如 user-service
+  # Nacos 配置
+  cloud:
+    nacos:
+      # 服务注册发现地址（Nacos 服务器地址）
+      server-addr: localhost:8848  # 本地默认地址，远程服务器需替换为实际 IP:端口
+      # 配置中心设置
+      config:
+        import-check:
+          enabled: false  # 若暂时不需要配置中心，可禁用检查（推荐新手先禁用）
+  # 若启用配置中心，需添加以下配置（否则用上面的 import-check: false）
+  # config:
+  #   import: nacos:${spring.application.name}  # 导入 Nacos 配置

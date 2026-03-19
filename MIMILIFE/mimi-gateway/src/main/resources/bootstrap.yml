@@ -1,0 +1,57 @@
+# 网关单独的配置文件，仅包含网关相关配置
+server:
+  port: 8080  # 网关端口
+
+spring:
+  application:
+    name: mimi-gateway  # 明确为网关服务
+
+  jackson:
+    # 日期格式化
+    date-format: yyyy-MM-dd HH:mm:ss
+    # 时区设置（重要，避免时区偏移导致的时间误差）
+    time-zone: GMT+8
+    # 对 LocalDateTime 等 Java 8 时间类型的格式化
+    deserialization:
+      adjust-dates-to-context-time-zone: false
+  redis:
+    host: 192.168.119.128
+    port: 6389
+    lettuce:
+      pool:
+        max-wait: 100000
+        max-idle: 10
+        max-active: 100
+    timeout: 5000
+    password: 123456
+  cloud:
+    nacos:
+      # 注册中心和配置中心地址必须一致（都用远程 Nacos，否则无法发现服务）
+      discovery:
+        server-addr: 192.168.119.128:8848  # 远程 Nacos 地址
+        username: nacos
+        password: nacos
+      config:
+        server-addr: 192.168.119.128:8848  # 与注册中心一致
+        file-extension: yaml
+    gateway:
+      discovery:
+        locator:
+          enabled: true  # 允许通过服务名访问（如 /mimi-user/xxx）
+          lower-case-service-id: true
+      routes:
+        - id: mimi-user-route
+          uri: lb://mimi-user  # 转发到用户服务（服务名必须与用户服务一致）
+          predicates:
+            - Path=/user/**  # 匹配所有以 /user 开头的请求
+#          filters:
+#            - StripPrefix=1  # 转发时去除第一个前缀（/user/login → 转发到 /login）
+        - id: mimi-community-route
+          uri: lb://mimi-community
+          predicates:
+            - Path=/community/**
+
+        - id: mimi-shopping-router
+          uri: lb://mimi-shopping
+          predicates:
+            - Path=/shopping/**

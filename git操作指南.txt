@@ -1,0 +1,12 @@
+可直接在 Git 仓库根目录运行相应命令，自动为所有空文件夹添加 .gitkeep。
+find . -type d -empty -not -path "./.git/*" -exec touch {}/.gitkeep \;
+
+
+# 添加 MMiao 目录下的所有子目录和文件（包括新出现的这几个）
+git add MMiao/
+
+# 提交这些新增的目录结构
+git commit -m "添加 MMiao 下的 composables、services、utils 目录"
+
+# 推送到远程仓库
+git push origin master

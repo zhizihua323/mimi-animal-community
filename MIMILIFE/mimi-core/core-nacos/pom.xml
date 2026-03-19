@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.mimi</groupId>
+        <artifactId>mimi-core</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>core-nacos</artifactId>
+    <name>core-nacos</name>
+    <description>核心模块Nacos注册发现组件</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.mimi</groupId>
+            <artifactId>mimi-common</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mimi</groupId>
+            <artifactId>core-api</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <!-- Spring Cloud Alibaba Nacos Discovery -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+
+        <!-- Spring Cloud OpenFeign -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Starter Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+            <!-- 无需指定版本：Spring Boot 会通过 "依赖管理" 自动匹配兼容版本（与你的 Spring Boot 2.3.12.RELEASE 适配） -->
+        </dependency>
+    </dependencies>
+
+</project>

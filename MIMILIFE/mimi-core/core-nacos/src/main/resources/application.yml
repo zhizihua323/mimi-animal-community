@@ -1,0 +1,62 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: nacosTest
+  cloud:
+    nacos:
+      server-addr: 192.168.119.128:8848
+
+#  TODO: 测试用，生产环境请删除  后加+++++++++++++++++++++++++++++++++++++
+#      copy -> community
+  redis:
+    host: 192.168.119.128
+    port: 6389
+    lettuce:
+      pool:
+        max-wait: 100000
+        max-idle: 10
+        max-active: 100
+    timeout: 5000
+    password: 123456
+#  datasource:
+#    #    云服务器端口3307映射到docker3306
+#    #    url: jdbc:mysql://192.168.119.128:3306/mimi_community?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+#    url: jdbc:mysql://192.168.119.128:3307/mimi_community?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+#    username: root
+#    password: 123456
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#    hikari:
+#      maximum-pool-size: 10
+#      minimum-idle: 5
+#      idle-timeout: 300000
+#      connection-timeout: 20000
+#      max-lifetime: 1800000
+
+  #      复制于shopping，用于测试
+  rabbitmq:
+    host: 192.168.119.128
+    port: 5672
+    username: admin
+    password: admin
+    virtual-host: /
+    publisher-confirm-type: correlated # 交换机确认
+    publisher-returns: true # 队列确认
+    listener:
+      simple:
+        acknowledge-mode: manual  #消费者消费后手动返回ack
+        prefetch: 10
+
+# 其他配置（微信、日志等）
+wechat:
+  login:
+    app-id: wxaed067782824b704
+    app-secret: 07b465712a8d9f7b24e14adee267eb55
+    msg-data-format: JSON
+
+# MinIO 配置
+minio:
+  endpoint: http://192.168.119.128:9000  # MinIO API 地址
+  accessKey: minioadmin               # 访问密钥（默认用户名）
+  secretKey: minioadmin               # 密钥（默认密码）
+  bucketName: animal-archival         # 默认存储桶名称

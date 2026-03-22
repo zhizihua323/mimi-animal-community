@@ -22,6 +22,12 @@
 <!--            <version>1.0.0</version>-->
 <!--        </dependency>-->
 
+        <!--   Jackson    -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
         <!-- MyBatis-Plus -->
         <dependency>
             <groupId>com.baomidou</groupId>

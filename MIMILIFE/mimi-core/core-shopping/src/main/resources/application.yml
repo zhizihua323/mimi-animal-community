@@ -66,6 +66,12 @@ wechat:
     app-secret: 07b465712a8d9f7b24e14adee267eb55
     msg-data-format: JSON
 
+# MinIO 配置 用于二手商品图片上传
+minio:
+  endpoint: http://192.168.119.128:9000  # MinIO API 地址
+  accessKey: minioadmin                  # 访问密钥（默认用户名）
+  secretKey: minioadmin                  # 密钥（默认密码）
+  bucketName: javatest                   # 默认存储桶名称（与你上传图片的桶一致）
 
 logging:
   level:

@@ -1,9 +1,7 @@
 <template>
   <view class="category-container">
     <view class="navbar">
-      <view class="back-btn" @click="navigateBack">←</view>
-      <text class="title">动物循迹</text>
-      <view class="empty"></view>
+		<text class="title">动物循迹</text>
     </view>
 
     <view class="search-box">
@@ -111,7 +109,14 @@
     <view class="marker-detail-popup" v-if="showMarkerDetail">
       <view class="detail-header">
         <text class="detail-title">{{ currentMarker.name }}的档案</text>
-        <view class="close-detail" @click="closeMarkerDetail">✕</view>
+        <view class="header-actions">
+          <text class="collect-icon" 
+                :style="{ color: currentMarker.isCollected ? '#FF9800' : '#ccc' }"
+                @click="toggleArchiveCollect(currentMarker)">
+            {{ currentMarker.isCollected ? '💖' : '🤍' }}
+          </text>
+          <view class="close-detail" @click="closeMarkerDetail">×</view>
+        </view>
       </view>
       
       <view class="detail-body">
@@ -275,132 +280,125 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app'; 
 import { listGetAnimalArchival } from '@/services/animalArchival/animalArchival.js'
+import { togglePostCollect, queryGetCollectList } from "@/services/my/collect.js"; 
 
-// 动物种类列表（替代原markerTypes）
+// 修复一：正确获取图片字段 + 传递真实数据库 ID
+const toggleArchiveCollect = async (archive) => {
+  const originalStatus = archive.isCollected;
+  archive.isCollected = !originalStatus; // 乐观锁先变色
+
+  // 极其关键：必须使用真实的雪花 ID (realId 或 stringId)
+  const realTargetId = archive.stringId || archive.realId || archive.id;
+
+  const payload = {
+    targetId: realTargetId, 
+    targetType: 2, // 2代表档案
+    title: `${archive.name}的档案`,
+    picUrl: archive.albumPhoto || '', // 修正：从 albumPhoto 取图，去掉下划线
+    summary: `物种: ${archive.species || '未知'}` 
+  };
+
+  try {
+    await togglePostCollect(payload);
+    uni.showToast({ title: archive.isCollected ? '收藏成功' : '已取消收藏', icon: 'none' });
+  } catch (error) {
+    archive.isCollected = originalStatus; // 回滚
+    uni.showToast({ title: '操作失败', icon: 'none' });
+  }
+};
+
+// 动物种类列表
 const animalSpecies = ref(['猫咪', '狗狗', '鸟类', '兔子', '其他']);
-// 新增：5 只可爱的假小动物数据 (用于丰富测试场景)
-// ID 用负数，防止和数据库真实雪花ID冲突，为了 find 备份用的
 const fakeAnimalList = [
-  { id: -1, name: '流浪狗阿黄(分类测试)', species: '狗狗', description: '经常在新乡龙之光广场附近出没，很亲人，喜欢摇尾巴。', latitude: 35.318000, longitude: 113.915000, albumPhoto: 'https://picsum.photos/seed/fake-dog1/100/100' },
-  { id: -2, name: '咪咪 (分类测试)', species: '猫咪', description: '河师大附属中学附近的常客，有点高冷，喜欢晒太阳。', latitude: 35.311000, longitude: 113.900000, albumPhoto: 'https://picsum.photos/seed/fake-cat1/100/100' },
-  { id: -3, name: '玉兔 (分类测试)', species: '兔子', description: '可能是谁家跑出来的，在新乡国际饭店附近的小树林看到过。', latitude: 35.325000, longitude: 113.905000, albumPhoto: 'https://picsum.photos/seed/fake-rabbit1/100/100' },
-  { id: -4, name: '小百灵(分类测试)', species: '鸟类', description: '公园里的歌唱家。', latitude: 35.316000, longitude: 113.920000, albumPhoto: 'https://picsum.photos/seed/fake-bird1/100/100' },
-  { id: -5, name: '小仓鼠 (分类测试)', species: '其他', description: '也是个测试的小可爱。', latitude: 35.312000, longitude: 113.918000, albumPhoto: 'https://picsum.photos/seed/fake-other1/100/100' }
+  { id: -1, name: '流浪狗阿黄', species: '狗狗', description: '亲人，喜欢摇尾巴。', latitude: 35.318000, longitude: 113.915000, albumPhoto: 'https://picsum.photos/seed/fake-dog1/100/100' },
+  { id: -2, name: '咪咪', species: '猫咪', description: '有点高冷，喜欢晒太阳。', latitude: 35.311000, longitude: 113.900000, albumPhoto: 'https://picsum.photos/seed/fake-cat1/100/100' }
 ];
 
-// 腾讯地图密钥
 const tencentMapKey = ref('TO7BZ-2GR67-XFZX4-PK5VA-3IEH7-ANBFS');
-// 当前选中的物种筛选条件
 const activeSpecies = ref('all');
-// 搜索查询词
 const searchQuery = ref('');
-// 详情弹窗显示状态
 const showMarkerDetail = ref(false);
-// 当前选中的动物档案
 const currentMarker = ref(null);
-// 地图中心纬度
 const mapLatitude = ref(39.90882);
-// 地图中心经度
 const mapLongitude = ref(116.39748);
-// 添加动物档案弹窗显示状态
 const showAddMarkerPopup = ref(false);
-// 地图高度
 const mapHeight = ref(300);
-// 系统信息
 const systemInfo = ref(uni.getSystemInfoSync());
-
-// 表单选项
 const wildOptions = ref(['家养动物', '野生动物']);
 const showOptions = ref(['仅自己可见', '公开可见']);
-
-// 动物档案表单数据
-const animalForm = ref({
-  name: '',
-  speciesIndex: 0,
-  isWild: 0,
-  birthData: '',
-  albumPhoto: '',
-  description: '',
-  isShow: 0,
-  latitude: null,
-  longitude: null
-});
-
-// 当前位置信息
-const currentLocation = ref({
-  latitude: 0,
-  longitude: 0
-});
+const animalForm = ref({ name: '', speciesIndex: 0, isWild: 0, birthData: '', albumPhoto: '', description: '', isShow: 0, latitude: null, longitude: null });
+const currentLocation = ref({ latitude: 0, longitude: 0 });
 const loading = ref(false)
+const animalArchives = ref([]); 
 
-// 动物档案列表（模拟数据）
-const animalArchives = ref([
-  {
-    id: 1,
-    name: '小白',
-    species: '猫咪',
-    isWild: 0,
-    birthData: '2022-03-15',
-    albumPhoto: 'https://picsum.photos/seed/cat1/36/36',
-    description: '白色英短，性格温顺，喜欢玩逗猫棒',
-    isShow: 1,
-    createUserId: 1001,
-    latitude: 39.90882,
-    longitude: 116.39748,
-    width: 36,
-    height: 36
-  },
-  {
-    id: 2,
-    name: '大黄',
-    species: '狗狗',
-    isWild: 1,
-    birthData: '2021-10-20',
-    albumPhoto: 'https://picsum.photos/seed/dog1/36/36',
-    description: '流浪狗救助，已绝育，警惕性较高',
-    isShow: 0,
-    createUserId: 1001,
-    latitude: 39.91882,
-    longitude: 116.40748,
-    width: 36,
-    height: 36
-  },
-  {
-    id: 3,
-    name: '灰灰',
-    species: '兔子',
-    isWild: 0,
-    birthData: '2023-01-05',
-    albumPhoto: 'https://picsum.photos/seed/rabbit1/36/36',
-    description: '荷兰侏儒兔，体型小巧，很活泼',
-    isShow: 1,
-    createUserId: 1002,
-    latitude: 39.92882,
-    longitude: 116.41748,
-    width: 36,
-    height: 36
+// 修复二：每次切回页面，自动刷新收藏状态
+onShow(() => {
+  getAnimalList();
+});
+
+onMounted(() => {
+  getCurrentLocation();
+  setMapHeight();
+  getAnimalList();
+  uni.onWindowResize((res) => {
+    systemInfo.value.windowHeight = res.windowHeight;
+    setMapHeight();
+  });
+});
+
+// 获取数据时，拉取收藏夹进行交叉比对
+const getAnimalList = async () => {
+  try {
+    loading.value = true;
+    const response = await listGetAnimalArchival();
+    
+    let records = [];
+    if (response.code === 200) {
+      records = (response.data.records || []).filter(item => item.latitude && item.longitude);
+    }
+    const mergedList = [...fakeAnimalList, ...records];
+
+    let myCollectIds = [];
+    try {
+      const collectRes = await queryGetCollectList();
+      myCollectIds = (collectRes.data || [])
+        .filter(item => item.targetType === 2) // 只看档案
+        .map(item => String(item.targetId));
+    } catch (e) {
+      console.error('获取收藏列表失败', e);
+    }
+
+    // 处理数据映射
+    animalArchives.value = mergedList.map((animal, index) => {
+      const realBackendId = String(animal.stringId || animal.id);
+      return {
+        ...animal,
+        id: index, // 给地图用的假下标
+        realId: animal.id, // 备份真ID
+        stringId: animal.stringId, // 备份真StringID
+        width: 36,
+        height: 36,
+        iconPath: animal.albumPhoto || getDefaultSpeciesIcon(animal.species),
+        isCollected: myCollectIds.includes(realBackendId) 
+      }
+    });
+    
+  } catch (error) {
+    console.error('处理数据失败:', error);
+  } finally {
+    loading.value = false;
   }
-]);
+}
 
-// 筛选动物档案（转换为地图标记点格式）
+// 筛选逻辑
 const filteredMarkers = computed(() => {
   let result = [...animalArchives.value];
-  
-  // 按物种筛选
   if (activeSpecies.value !== 'all') {
-    const speciesMap = {
-      'cat': '猫咪',
-      'dog': '狗狗',
-      'bird': '鸟类',
-      'rabbit': '兔子',
-      'other': '其他'
-    };
-    const targetSpecies = speciesMap[activeSpecies.value];
-    result = result.filter(archive => archive.species === targetSpecies);
+    const speciesMap = { 'cat': '猫咪', 'dog': '狗狗', 'bird': '鸟类', 'rabbit': '兔子', 'other': '其他' };
+    result = result.filter(archive => archive.species === speciesMap[activeSpecies.value]);
   }
-  
-  // 搜索筛选
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     result = result.filter(archive => 
@@ -409,163 +407,40 @@ const filteredMarkers = computed(() => {
       (archive.description && archive.description.toLowerCase().includes(query))
     );
   }
-  
-  // 在这里重新分配安全的数字下标给地图组件！
-  return result.map((archive, index) => ({
-    ...archive,
-    id: index, // 强制给地图用从 0 开始的安全数字下标，覆盖掉原来的长 ID
-    width: archive.width || 36,
-    height: archive.height || 36,
-    iconPath: archive.albumPhoto || getDefaultSpeciesIcon(archive.species)
-  }));
+  return result.map((archive, index) => ({ ...archive, id: index }));
 });
 
-// 初始化
-onMounted(async() => {
-  getCurrentLocation();
-  setMapHeight();
-  getAnimalList();
-  
-  // 监听窗口尺寸变化
-  uni.onWindowResize((res) => {
-    systemInfo.value.windowHeight = res.windowHeight;
-    setMapHeight();
-  });
-});
-
-// 获取动物列表
-const getAnimalList = async () => {
-  try {
-    loading.value = true // 显示加载状态
-    const response = await listGetAnimalArchival()
-    
-    let records = [];
-    if (response.code === 200) {
-      // 拿到真实数据，并过滤掉后端万一没有经纬度的脏数据
-      records = (response.data.records || []).filter(item => item.latitude && item.longitude);
-    }
-
-    // 1. 魔法时间：把 5 条假数据和后端真数据合并成一个大数组！
-    const mergedList = [...fakeAnimalList, ...records];
-
-    // 2. 核心修复：重新遍历大数组，确保每一个元素的 id 属性都强制等于它的下标 index ！
-    animalArchives.value = mergedList.map((animal, index) => ({
-        ...animal,
-        
-        // ================= 终极修复报错的关键点 =================
-        id: index, // 必须写这行！强制让它等于数字 0, 1, 2, 3... 满足微信地图的变态要求
-        // ======================================================
-        
-        realId: animal.id, // 把如果是负数的假ID或者长长雪花的真ID备份下来，跳转用
-        width: 36,
-        height: 36,
-        iconPath: animal.albumPhoto || getDefaultSpeciesIcon(animal.species)
-      }))
-      
-    // 修复打印，打印真实的合并后数据
-    console.log("animalArchives 合并后的真实值：", animalArchives.value)
-    
-  } catch (error) {
-    console.error('处理数据失败:', error)
-    // 保险起见，fail 里也要把假数据显示出来
-    animalArchives.value = fakeAnimalList.map((animal, index) => ({ ...animal, id: index, realId: animal.id, width: 36, height: 36 }));
-  } finally {
-    loading.value = false // 关闭加载状态
-  }
-}
-
-// 设置地图高度
+// ================== 原有普通方法恢复 ==================
 const setMapHeight = () => {
   const maxAllowedHeight = systemInfo.value.windowHeight * 0.6;
-  const minHeight = 300;
-  const calculatedHeight = systemInfo.value.windowHeight - 400;
-  mapHeight.value = Math.max(minHeight, Math.min(calculatedHeight, maxAllowedHeight));
+  mapHeight.value = Math.max(300, Math.min(systemInfo.value.windowHeight - 400, maxAllowedHeight));
 };
 
-// 获取当前位置
 const getCurrentLocation = () => {
   uni.getLocation({
     type: 'gcj02',
-    success: (res) => {
-      mapLatitude.value = res.latitude;
-      mapLongitude.value = res.longitude;
-      currentLocation.value.latitude = res.latitude;
-      currentLocation.value.longitude = res.longitude;
-    },
-    fail: (err) => {
-      console.error('获取位置失败:', err);
-      currentLocation.value.latitude = 39.90882;
-      currentLocation.value.longitude = 116.39748;
-    }
+    success: (res) => { mapLatitude.value = res.latitude; mapLongitude.value = res.longitude; currentLocation.value = { ...res }; },
+    fail: () => { currentLocation.value = { latitude: 39.90882, longitude: 116.39748 }; }
   });
 };
 
-// 处理物种筛选点击事件（自动初始化相关值）
-const handleSpeciesClick = (speciesType) => {
-  activeSpecies.value = speciesType;
-  
-  // 初始化与该物种相关的表单值映射
-  const speciesIndexMap = {
-    'all': 0,
-    'cat': 0,
-    'dog': 1,
-    'bird': 2,
-    'rabbit': 3,
-    'other': 4
-  };
-  
-  // 记录当前弹窗状态
-  const wasPopupOpen = showAddMarkerPopup.value;
-  
-  // 如果弹窗是打开的，更新表单中的物种选择
-  if (wasPopupOpen) {
-    animalForm.value.speciesIndex = speciesIndexMap[speciesType];
+const handleSpeciesClick = (speciesType) => { activeSpecies.value = speciesType; };
+
+const onMarkerTap = (e) => {
+  const clickedIndex = e.detail.markerId !== undefined ? e.detail.markerId : e.markerId;
+  const clickedAnimal = filteredMarkers.value[clickedIndex];
+  if (clickedAnimal) {
+    currentMarker.value = clickedAnimal;
+    showMarkerDetail.value = true;
   }
 };
 
-// 标记点点击事件
-const onMarkerTap = (e) => {
-    // 1. 获取地图返回的数字下标
-    const clickedIndex = e.detail.markerId !== undefined ? e.detail.markerId : e.markerId;
-    console.log("用户点击了标记，地图返回的下标是：", clickedIndex);
+const navigateBack = () => uni.navigateBack();
+const locateToCurrent = () => getCurrentLocation();
+const navigateToDetail = (marker) => { currentMarker.value = marker; showMarkerDetail.value = true; };
+const closeMarkerDetail = () => showMarkerDetail.value = false;
 
-    // 2. 核心修改：必须从 filteredMarkers 里取数据！因为地图上展示的就是这个过滤后的数组
-    const clickedAnimal = filteredMarkers.value[clickedIndex];
-    
-    if (!clickedAnimal) {
-      uni.showToast({ title: '未找到该标记数据', icon: 'none' });
-      return;
-    }
-  
-    console.log("成功找到小动物，准备弹窗：", clickedAnimal.name);
-
-    // 3. 完美弹出弹窗
-    currentMarker.value = clickedAnimal;
-    showMarkerDetail.value = true;
-};
-
-// 返回上一页
-const navigateBack = () => {
-  uni.navigateBack();
-};
-
-// 定位到当前位置
-const locateToCurrent = () => {
-  getCurrentLocation();
-};
-
-// 导航到详情
-const navigateToDetail = (marker) => {
-  currentMarker.value = marker;
-  showMarkerDetail.value = true;
-};
-
-// 关闭详情弹窗
-const closeMarkerDetail = () => {
-  showMarkerDetail.value = false;
-};
-
-// 切换显示状态
+// 恢复：切换可见性状态
 const toggleShowStatus = () => {
   if (currentMarker.value) {
     currentMarker.value.isShow = currentMarker.value.isShow === 1 ? 0 : 1;
@@ -581,105 +456,23 @@ const toggleShowStatus = () => {
   }
 };
 
-// 点击图片跳转到其他页面
 const navigateToOtherPage = (marker) => {
-  // 关闭可能打开的弹窗（如果需要）
   showMarkerDetail.value = false;
-  
-  // 使用uni.navigateTo跳转，url为目标页面路径，可通过query传递参数
-  uni.navigateTo({
-    url: `/pages/animalDetail/animalDetail?id=${marker.id}&name=${marker.name}`,
-    // 跳转失败的处理
-    fail: (err) => {
-      console.error('页面跳转失败:', err);
-      uni.showToast({ title: '跳转失败', icon: 'none' });
-    }
-  });
+  uni.navigateTo({ url: `/pages/animalDetail/animalDetail?id=${marker.realId}&name=${marker.name}` });
 };
-
-// 导航到位置
 const navigateToLocation = (currentMarker) => {
-  // if (!currentMarker.value.latitude || !currentMarker.value.longitude) {
-  //   uni.showToast({
-  //     title: '该动物未设置位置信息',
-  //     icon: 'none'
-  //   });
-  //   return;
-  // }
-  
- //  // 模拟导航功能
- //  uni.showToast({
-	
- //    title: '导航功能开发中',
- //    icon: 'none'
- //  });
- 
- uni.navigateTo({
- 	url:`/pages/animal_daily/animal_daily?id=${currentMarker.stringId}`
- })
+  uni.navigateTo({ url:`/pages/animal_daily/animal_daily?id=${currentMarker.stringId}` });
 };
 
-// 打开添加动物档案弹窗（自动初始化表单）
-const openAddMarker = () => {
-  // 初始化表单值
-  initAnimalForm();
-  // 刷新当前位置
-  getCurrentLocation();
-  // 显示弹窗
-  showAddMarkerPopup.value = true;
-};
+const openAddMarker = () => { initAnimalForm(); getCurrentLocation(); showAddMarkerPopup.value = true; };
+const initAnimalForm = () => { animalForm.value = { name: '', speciesIndex: 0, isWild: 0, birthData: '', albumPhoto: '', description: '', isShow: 0, latitude: null, longitude: null }; };
+const closeAddMarkerPopup = () => showAddMarkerPopup.value = false;
+const onSpeciesChange = (e) => animalForm.value.speciesIndex = e.detail.value;
+const onWildChange = (e) => animalForm.value.isWild = e.detail.value;
+const onBirthDateChange = (e) => animalForm.value.birthData = e.detail.value;
+const onShowChange = (e) => animalForm.value.isShow = e.detail.value;
 
-// 初始化动物表单
-const initAnimalForm = () => {
-  // 根据当前选中的物种自动设置表单默认值
-  const speciesIndexMap = {
-    'all': 0,
-    'cat': 0,
-    'dog': 1,
-    'bird': 2,
-    'rabbit': 3,
-    'other': 4
-  };
-  
-  animalForm.value = {
-    name: '',
-    speciesIndex: speciesIndexMap[activeSpecies.value],
-    isWild: 0, // 默认家养
-    birthData: '',
-    albumPhoto: '',
-    description: '',
-    isShow: 0, // 默认仅自己可见
-    latitude: null,
-    longitude: null
-  };
-};
-
-// 关闭添加弹窗
-const closeAddMarkerPopup = () => {
-  showAddMarkerPopup.value = false;
-};
-
-// 物种选择变化
-const onSpeciesChange = (e) => {
-  animalForm.value.speciesIndex = e.detail.value;
-};
-
-// 动物类型变化
-const onWildChange = (e) => {
-  animalForm.value.isWild = e.detail.value;
-};
-
-// 出生日期变化
-const onBirthDateChange = (e) => {
-  animalForm.value.birthData = e.detail.value;
-};
-
-// 可见性变化
-const onShowChange = (e) => {
-  animalForm.value.isShow = e.detail.value;
-};
-
-// 选择相册图片
+// 恢复：选择图片
 const chooseAlbumPhoto = () => {
   uni.chooseImage({
     count: 1,
@@ -693,18 +486,9 @@ const chooseAlbumPhoto = () => {
   });
 };
 
-// 使用当前位置
-const useCurrentLocation = () => {
-  animalForm.value.latitude = currentLocation.value.latitude;
-  animalForm.value.longitude = currentLocation.value.longitude;
-  
-  uni.showToast({
-    title: '已使用当前位置',
-    icon: 'none'
-  });
-};
+const useCurrentLocation = () => { animalForm.value.latitude = currentLocation.value.latitude; animalForm.value.longitude = currentLocation.value.longitude; };
 
-// 提交动物档案
+// 恢复：提交动物表单
 const submitAnimal = () => {
   if (!animalForm.value.name.trim()) {
     uni.showToast({
@@ -739,27 +523,18 @@ const submitAnimal = () => {
   });
 };
 
-// 获取默认物种图标
 const getDefaultSpeciesIcon = (species) => {
-  const iconMap = {
-    '猫咪': 'https://picsum.photos/seed/cat/36/36',
-    '狗狗': 'https://picsum.photos/seed/dog/36/36',
-    '鸟类': 'https://picsum.photos/seed/bird/36/36',
-    '兔子': 'https://picsum.photos/seed/rabbit/36/36',
-    '其他': 'https://picsum.photos/seed/animal/36/36'
-  };
+  const iconMap = { '猫咪': 'https://picsum.photos/seed/cat/36/36', '狗狗': 'https://picsum.photos/seed/dog/36/36', '鸟类': 'https://picsum.photos/seed/bird/36/36', '兔子': 'https://picsum.photos/seed/rabbit/36/36', '其他': 'https://picsum.photos/seed/animal/36/36' };
   return iconMap[species] || iconMap['其他'];
 };
 
-// 格式化日期
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
-  // 简单的日期格式化，实际项目中可使用更完善的日期库
   const date = new Date(dateStr);
   return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
 };
 
-// 搜索处理
+// 恢复：搜索处理（这里原本也是空的，但我给你放回来了）
 const handleSearch = () => {
   // 搜索逻辑由computed自动处理
 };
@@ -774,11 +549,12 @@ const handleSearch = () => {
 
 .navbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: center;       /* 垂直居中 */
+  justify-content: center;    /* 水平居中 */
   padding: 20rpx 30rpx;
   background-color: #FF85A2;
   color: white;
+  height: 88rpx;             /* 建议给个固定高度 */
 }
 
 .back-btn {
@@ -788,11 +564,6 @@ const handleSearch = () => {
 
 .title {
   font-size: 34rpx;
-  font-weight: bold;
-}
-
-.empty {
-  width: 40rpx;
 }
 
 .search-box {
@@ -1240,5 +1011,16 @@ const handleSearch = () => {
   height: 120rpx;
   margin-top: 10rpx;
   border-radius: 8rpx;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx; /* 图标之间的间距 */
+}
+
+.collect-icon {
+  font-size: 40rpx; /* 根据实际需要调整大小 */
+  padding: 0 10rpx;
 }
 </style>

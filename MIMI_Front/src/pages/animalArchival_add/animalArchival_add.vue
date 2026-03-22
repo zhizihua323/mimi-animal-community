@@ -78,16 +78,23 @@
       </view>
 
       <!-- 出生日期 -->
-      <view class="form-item">
-        <view class="label">出生日期</view>
-        <view class="input-container">
-          <input 
-            type="date" 
-            v-model="formData.birthData" 
-            class="form-input date-input"
-          />
-        </view>
-      </view>
+	  <view class="form-item">
+	    <view class="label">出生日期</view>
+	    <view class="input-container">
+	      <picker 
+	        mode="date" 
+	        :value="formData.birthData" 
+	        start="2000-01-01" 
+	        end="2050-12-31" 
+	        @change="onBirthDateChange"
+	        class="form-picker"
+	      >
+	        <view :class="['picker-text', !formData.birthData ? 'placeholder-text' : '']">
+	          {{ formData.birthData || '请选择出生日期' }}
+	        </view>
+	      </picker>
+	    </view>
+	  </view>
 
       <!-- 相册照片 -->
       <view class="form-item">
@@ -254,6 +261,11 @@ const getCurrentLocation = () => {
       currentLocation.value.longitude = 116.39748;
     }
   });
+};
+
+// 处理日期选择事件
+const onBirthDateChange = (e) => {
+  formData.value.birthData = e.detail.value;
 };
 
 // 选择图片

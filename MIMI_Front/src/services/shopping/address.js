@@ -56,3 +56,19 @@ export const deletePostAddressById = async (id)=>{
 		throw error // 继续向上抛出错误，让调用方处理
 	}
 }
+
+// 修改地址接口 (对应后端的 @PutMapping)
+export const updatePostAddress = async (address) => {
+  try {
+    const res = await http({
+      method: "PUT", 
+      url: "/shopping/address",
+      data: address,
+    })
+    console.log('数据更新成功:', res)
+    return res
+  } catch (error) {
+    console.error('数据更新失败:', error)
+    throw error 
+  }
+}

@@ -41,14 +41,10 @@
         ></textarea>
       </view>
       
-     <!-- <view class="form-group checkbox-group">
-        <checkbox 
-          class="form-checkbox" 
-          v-model="formData.isDefault"
-          color="#FF85A2"
-        />
-        <text class="checkbox-text">设为默认地址</text>
-      </view> -->
+     <view class="form-group switch-group">
+        <text class="form-label">设为默认地址</text>
+        <switch :checked="formData.isDefault === 1" color="#FF85A2" @change="onDefaultChange" />
+     </view>
     </view>
 
     <!-- 保存按钮 -->
@@ -66,8 +62,13 @@ const formData = ref({
   name: '',
   tel: '',
   address: '',
-  // isDefault: false
+  isDefault: 0 // 默认为 0 (非默认)
 });
+
+// 切换开关触发的方法
+const onDefaultChange = (e) => {
+  formData.value.isDefault = e.detail.value ? 1 : 0;
+};
 
 // 返回上一页
 const navigateBack = () => {

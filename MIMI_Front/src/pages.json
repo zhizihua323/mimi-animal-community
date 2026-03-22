@@ -70,6 +70,13 @@
         "navigationStyle": "custom"
       }
     },
+	{
+	  "path": "pages/goods_add/goods_add",
+	  "style": {
+	    "navigationBarTitleText": "发布商品",
+	    "navigationStyle": "custom"
+	  }
+	},
     {
       "path": "pages/animalArchival_add/animalArchival_add",
       "style": {
@@ -146,6 +153,38 @@
 		  "navigationBarTitleText": "地图定位",
 		  "navigationStyle": "custom"
 		}
+	},
+	{
+	  "path": "pages/address_edit/address_edit",
+	  "style": {
+	    "navigationBarTitleText": "编辑收货地址",
+	    "navigationBarBackgroundColor": "#FF85A2",
+	    "navigationBarTextStyle": "white"
+	  }
+	},
+	{
+	  "path": "pages/shopping_cart/shopping_cart",
+	  "style": {
+	    "navigationBarTitleText": "购物车",
+	    "navigationBarBackgroundColor": "#FF85A2",
+	    "navigationBarTextStyle": "white"
+	  }
+	},
+	{
+	  "path": "pages/collection_list/collection_list",
+	  "style": {
+	    "navigationBarTitleText": "我的收藏",
+	    "navigationBarBackgroundColor": "#FF85A2",
+	    "navigationBarTextStyle": "white"
+	  }
+	},
+	{
+	  "path": "pages/animalDetail/animalDetail",
+	  "style": {
+	    "navigationBarTitleText": "档案详情",
+	    "navigationBarBackgroundColor": "#ffffff",
+	    "navigationBarTextStyle": "black"
+	  }
 	}
   ],
   "globalStyle": {

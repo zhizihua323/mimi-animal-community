@@ -110,7 +110,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad , onUnload} from '@dcloudio/uni-app'; 
-import { queryGetOrder } from "@/services/shopping/order.js"
+import { queryGetOrder, updateOrderStatus } from "@/services/shopping/order.js"
 import { queryGetAddress } from "@/services/shopping/address.js"
 
 // 订单和商品信息
@@ -243,7 +243,7 @@ const submitPayment = () => {
   
   // 模拟支付网络请求延迟
   // 在 shopping_pay.vue 里的 submitPayment 中补充：
-  setTimeout(() => {
+  setTimeout(async () => {
     uni.hideLoading();
     
     // 补充这行核心逻辑：调用一个改变状态的接口

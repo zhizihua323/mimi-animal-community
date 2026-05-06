@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>MIMI宠物社区 - 核心管理后台</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
+    <script src="https://cdn.jsdelivr.net/npm/element-plus"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #f0f2f5; font-family: Arial, sans-serif; }
+        .login-box { width: 350px; margin: 150px auto; padding: 40px; background: white; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .el-header { background-color: #2b3643; color: white; display: flex; align-items: center; justify-content: space-between; }
+        .card-panel { padding: 20px; text-align: center; border-radius: 8px; background: #fff; box-shadow: 0 2px 12px 0 rgba(0,0,0,.05); margin-bottom: 20px;}
+        .card-num { font-size: 32px; font-weight: bold; color: #409EFF; margin-top: 10px; }
+        .toolbar { margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .table-img { width: 50px; height: 50px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-if="!isLogin" class="login-box">
+            <h2 style="text-align: center; color: #2b3643; margin-bottom: 30px;">MIMI 后台管理登录</h2>
+            <el-input v-model="loginForm.username" placeholder="请输入管理员账号" style="margin-bottom: 20px;"></el-input>
+            <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" style="margin-bottom: 20px;"></el-input>
+            <el-button type="primary" style="width: 100%;" @click="handleLogin" :loading="loading">安全登录</el-button>
+        </div>
+
+        <el-container v-else style="height: 100vh;">
+            <el-header height="60px">
+                <h2>🐾 MIMI 宠物社区总后台</h2>
+                <div>当前身份: 超级管理员 | <el-button type="danger" size="small" @click="logout" plain>退出登录</el-button></div>
+            </el-header>
+            <el-container>
+                <el-aside width="220px" style="background-color: #304156;">
+                    <el-menu active-text-color="#409EFF" background-color="#304156" text-color="#bfcbd9" default-active="1" @select="handleMenuSelect" style="border-right: none;">
+                        <el-menu-item index="1">首页数据</el-menu-item>
+                        <el-menu-item index="2">用户管理 (封禁/解封)</el-menu-item>
+                        <el-menu-item index="3">社区动态 (内容审核)</el-menu-item>
+                        <el-menu-item index="4">商城商品 (上架/编辑)</el-menu-item>
+                        <el-menu-item index="5">订单管理 (发货处理)</el-menu-item>
+                    </el-menu>
+                </el-aside>
+                <el-main style="padding: 20px;">
+                    
+                    <div v-if="activeMenu === '1'">
+                        <el-row :gutter="20">
+                            <el-col :span="6"><div class="card-panel"><div>平台总用户</div><div class="card-num">{{ dashboard.userCount || 0 }}</div></div></el-col>
+                            <el-col :span="6"><div class="card-panel"><div>社区动态数</div><div class="card-num">{{ dashboard.dailyCount || 0 }}</div></div></el-col>
+                            <el-col :span="6"><div class="card-panel"><div>在售商品数</div><div class="card-num">{{ dashboard.goodsCount || 0 }}</div></div></el-col>
+                            <el-col :span="6"><div class="card-panel"><div>累计订单数</div><div class="card-num">{{ dashboard.orderCount || 0 }}</div></div></el-col>
+                        </el-row>
+                    </div>
+
+                    <el-card v-if="activeMenu === '2'">
+                        <div class="toolbar">
+                            <div>
+                                <el-input v-model="searchKeys.user" placeholder="搜用户昵称" style="width: 200px; margin-right: 10px;"></el-input>
+                                <el-button type="primary" @click="fetchUserList">搜索</el-button>
+                            </div>
+                        </div>
+                        <el-table :data="userList" border v-loading="tableLoading">
+                            <el-table-column label="头像" width="100">
+                                <template #default="scope">
+                                    <el-image class="table-img" :src="scope.row.avatar" :preview-src-list="[scope.row.avatar]" fit="cover" preview-teleported>
+                                        <template #error><div style="font-size:12px; color:#999">暂无头像</div></template>
+                                    </el-image>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="id" label="用户ID" width="180"></el-table-column>
+                            <el-table-column prop="name" label="用户昵称"></el-table-column>
+                            <el-table-column label="账号状态" width="120">
+                                <template #default="scope">
+                                    <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">{{ scope.row.status === 1 ? '正常' : '已封禁' }}</el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="操作" width="150">
+                                <template #default="scope">
+                                    <el-button size="small" :type="scope.row.status === 1 ? 'danger' : 'success'" @click="toggleUserStatus(scope.row)">
+                                        {{ scope.row.status === 1 ? '封禁账号' : '解除封禁' }}
+                                    </el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-card>
+
+                    <el-card v-if="activeMenu === '3'">
+                        <div class="toolbar"><el-button type="primary" icon="Refresh" @click="fetchDailyList">刷新列表</el-button></div>
+                        <el-table :data="dailyList" border v-loading="tableLoading">
+                            <el-table-column prop="id" label="动态ID" width="180"></el-table-column>
+                            <el-table-column label="动态图片" width="120">
+                                <template #default="scope">
+                                    <el-image class="table-img" :src="scope.row.picUrl" :preview-src-list="[scope.row.picUrl]" fit="cover" preview-teleported></el-image>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="text" label="动态文字内容" show-overflow-tooltip></el-table-column>
+                            <el-table-column prop="createTime" label="发布时间" width="180"></el-table-column>
+                            <el-table-column label="内容审核" width="120">
+                                <template #default="scope">
+                                    <el-popconfirm title="确定删除？" @confirm="deleteDaily(scope.row.id)"><template #reference><el-button size="small" type="danger">违规删除</el-button></template></el-popconfirm>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-card>
+
+                    <el-card v-if="activeMenu === '4'">
+                        <div class="toolbar">
+                            <div>
+                                <el-input v-model="searchKeys.goods" placeholder="搜商品名称" style="width: 200px; margin-right: 10px;"></el-input>
+                                <el-button type="primary" @click="fetchGoodsList">搜索</el-button>
+                            </div>
+                            <el-button type="success" @click="showGoodsDialog()">+ 发布新商品</el-button>
+                        </div>
+                        <el-table :data="goodsList" border v-loading="tableLoading">
+                            <el-table-column label="商品图" width="100">
+                                <template #default="scope">
+                                    <el-image class="table-img" :src="scope.row.picUrl" :preview-src-list="[scope.row.picUrl]" fit="cover" preview-teleported></el-image>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="id" label="商品ID" width="180"></el-table-column>
+                            <el-table-column prop="goodsName" label="商品名称"></el-table-column>
+                            <el-table-column prop="price" label="售价 (元)" width="100"></el-table-column>
+                            <el-table-column label="管理操作" width="200">
+                                <template #default="scope">
+                                    <el-button size="small" type="primary" @click="showGoodsDialog(scope.row)">编辑</el-button>
+                                    <el-popconfirm title="确认删除？" @confirm="deleteGoods(scope.row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-card>
+
+                    <el-card v-if="activeMenu === '5'">
+                        <div class="toolbar"><el-button type="primary" icon="Refresh" @click="fetchOrderList">刷新订单</el-button></div>
+                        <el-table :data="orderList" border v-loading="tableLoading">
+                            <el-table-column prop="id" label="订单号" width="180"></el-table-column>
+                            <el-table-column label="商品预览" width="100">
+                                <template #default="scope">
+                                    <el-image class="table-img" :src="scope.row.goodsUrl" :preview-src-list="[scope.row.goodsUrl]" fit="cover" preview-teleported></el-image>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="goodsName" label="购买商品"></el-table-column>
+                            <el-table-column prop="price" label="实付金额" width="100"></el-table-column>
+                            <el-table-column label="订单状态" width="120">
+                                <template #default="scope">
+                                    <el-tag :type="scope.row.status === 0 ? 'warning' : 'success'">{{ scope.row.status === 0 ? '待发货' : '已发货' }}</el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="发货操作" width="120">
+                                <template #default="scope">
+                                    <el-button v-if="scope.row.status === 0" size="small" type="primary" @click="deliverOrder(scope.row)">点击发货</el-button>
+                                    <span v-else style="color:#67C23A; font-size:12px;">已处理</span>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-card>
+
+                </el-main>
+            </el-container>
+        </el-container>
+
+        <el-dialog v-model="goodsDialog.visible" :title="goodsDialog.isEdit ? '修改商品信息' : '发布新商品'" width="550px">
+            <el-form :model="goodsDialog.form" label-width="100px">
+                <el-form-item label="商品名称"><el-input v-model="goodsDialog.form.goodsName"></el-input></el-form-item>
+                <el-form-item label="商品价格"><el-input-number v-model="goodsDialog.form.price" :precision="2" :step="1" style="width:100%"></el-input-number></el-form-item>
+                
+                <el-form-item label="商品图片URL">
+                    <el-input v-model="goodsDialog.form.picUrl" placeholder="请输入MinIO或外部图片链接">
+                        <template #append><el-button icon="Picture"></el-button></template>
+                    </el-input>
+                    <div style="margin-top: 10px; border: 1px dashed #ccc; padding: 5px; text-align: center;">
+                        <el-image v-if="goodsDialog.form.picUrl" :src="goodsDialog.form.picUrl" style="max-height: 100px; max-width: 100%;" fit="contain">
+                            <template #error><div style="font-size:12px; color:#999">图片链接无效</div></template>
+                        </el-image>
+                        <div v-else style="color:#999; font-size:12px; line-height:100px;">输入链接后此处预览</div>
+                    </div>
+                </el-form-item>
+
+                <el-form-item label="商品重量"><el-input-number v-model="goodsDialog.form.weight" :precision="2" style="width:100%"></el-input-number></el-form-item>
+                <el-form-item label="材质说明"><el-input v-model="goodsDialog.form.material"></el-input></el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="goodsDialog.visible = false">取 消</el-button>
+                <el-button type="primary" @click="saveGoods">确 定</el-button>
+            </template>
+        </el-dialog>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+        
+        // 核心端口配置
+        const API = {
+            user: 'http://localhost:8084/admin',
+            community: 'http://localhost:8085/admin',
+            shopping: 'http://localhost:8086/admin' 
+        };
+
+        createApp({
+            setup() {
+                const isLogin = ref(false);
+                const loading = ref(false);
+                const tableLoading = ref(false);
+                const activeMenu = ref('1');
+                const loginForm = ref({ username: 'admin', password: '123456' });
+                const dashboard = ref({});
+                const userList = ref([]);
+                const dailyList = ref([]);
+                const goodsList = ref([]);
+                const orderList = ref([]);
+                const searchKeys = ref({ user: '', goods: '' });
+                const goodsDialog = ref({ visible: false, isEdit: false, form: {} });
+
+                axios.interceptors.request.use(config => {
+                    const token = localStorage.getItem('adminToken');
+                    if (token) { config.headers['token'] = token; }
+                    return config;
+                });
+
+                const handleRes = (res, successMsg) => {
+                    if(res.data.code === 200) {
+                        if(successMsg) ElementPlus.ElMessage.success(successMsg);
+                        return res.data.data;
+                    }
+                    ElementPlus.ElMessage.error(res.data.message || '操作失败');
+                    return null;
+                };
+
+                const handleLogin = async () => {
+                    loading.value = true;
+                    try {
+                        const res = await axios.post(`${API.user}/sys/login`, loginForm.value);
+                        const data = handleRes(res, '登录成功');
+                        if (data) { localStorage.setItem('adminToken', data.token); isLogin.value = true; fetchDashboard(); }
+                    } catch (e) { ElementPlus.ElMessage.error('无法连接到User服务'); }
+                    loading.value = false;
+                };
+
+                const fetchDashboard = async () => { try { const res = await axios.get(`${API.user}/sys/dashboard`); if(res.data.code === 200) dashboard.value = res.data.data; } catch (e) {} };
+
+                const fetchUserList = async () => {
+                    tableLoading.value = true;
+                    try { const res = await axios.get(`${API.user}/user/list?name=${searchKeys.value.user}`); const data = handleRes(res); if(data) userList.value = data.records || data; } catch (e) {}
+                    tableLoading.value = false;
+                };
+
+                const toggleUserStatus = async (user) => {
+                    const newStatus = user.status === 1 ? 0 : 1;
+                    try { const res = await axios.put(`${API.user}/user/update`, { id: user.id, status: newStatus }); if(handleRes(res, '用户状态已更新')) fetchUserList(); } catch (e) {}
+                };
+
+                const fetchDailyList = async () => {
+                    tableLoading.value = true;
+                    try { const res = await axios.get(`${API.community}/daily/list`); const data = handleRes(res); if(data) dailyList.value = data.records || data; } catch (e) {}
+                    tableLoading.value = false;
+                };
+
+                const deleteDaily = async (id) => { try { const res = await axios.delete(`${API.community}/daily/delete/${id}`); if(handleRes(res, '已删除')) fetchDailyList(); } catch (e) {} };
+
+                const fetchGoodsList = async () => {
+                    tableLoading.value = true;
+                    try { const res = await axios.get(`${API.shopping}/goods/list?name=${searchKeys.value.goods}`); const data = handleRes(res); if(data) goodsList.value = data.records || data; } catch (e) {}
+                    tableLoading.value = false;
+                };
+
+                const showGoodsDialog = (goods = null) => {
+                    goodsDialog.value.isEdit = !!goods;
+                    goodsDialog.value.form = goods ? JSON.parse(JSON.stringify(goods)) : { goodsName: '', price: 0, weight: 0, picUrl: '' };
+                    goodsDialog.value.visible = true;
+                };
+
+                const saveGoods = async () => {
+                    const method = goodsDialog.value.isEdit ? 'put' : 'post';
+                    const url = `${API.shopping}/goods/${goodsDialog.value.isEdit ? 'update' : 'add'}`;
+                    try { if(handleRes(await axios[method](url, goodsDialog.value.form), '保存成功')) { goodsDialog.value.visible = false; fetchGoodsList(); } } catch (e) {}
+                };
+
+                const deleteGoods = async (id) => { try { if(handleRes(await axios.delete(`${API.shopping}/goods/delete/${id}`), '已下架')) fetchGoodsList(); } catch (e) {} };
+
+                const fetchOrderList = async () => {
+                    tableLoading.value = true;
+                    try { const res = await axios.get(`${API.shopping}/order/list`); const data = handleRes(res); if(data) orderList.value = data.records || data; } catch (e) {}
+                    tableLoading.value = false;
+                };
+
+                const deliverOrder = async (order) => { try { if(handleRes(await axios.put(`${API.shopping}/order/update`, { id: order.id, status: 1 }), '发货成功')) fetchOrderList(); } catch (e) {} };
+
+                const handleMenuSelect = (index) => {
+                    activeMenu.value = index;
+                    const map = { '1': fetchDashboard, '2': fetchUserList, '3': fetchDailyList, '4': fetchGoodsList, '5': fetchOrderList };
+                    if(map[index]) map[index]();
+                };
+
+                const logout = () => { localStorage.removeItem('adminToken'); isLogin.value = false; };
+
+                onMounted(() => { if (localStorage.getItem('adminToken')) { isLogin.value = true; fetchDashboard(); } });
+
+                return { isLogin, loading, tableLoading, loginForm, handleLogin, logout, activeMenu, handleMenuSelect, dashboard, userList, searchKeys, fetchUserList, toggleUserStatus, dailyList, fetchDailyList, deleteDaily, goodsList, fetchGoodsList, showGoodsDialog, goodsDialog, saveGoods, deleteGoods, orderList, fetchOrderList, deliverOrder };
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>

@@ -49,9 +49,9 @@ public class GoodsController {
      */
     @PostMapping("/publish")
     public Result publish(@RequestBody Goods goods) {
-        // 1. 获取当前登录用户 ID
         Long userId = 1961677606954274818L;
 
+        // 1. 获取当前登录用户 ID
         goods.setUserId(userId);
         goods.setCollect(0);
 

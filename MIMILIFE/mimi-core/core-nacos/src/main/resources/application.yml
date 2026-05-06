@@ -50,8 +50,8 @@ spring:
 # 其他配置（微信、日志等）
 wechat:
   login:
-    app-id: wxaed067782824b704
-    app-secret: 07b465712a8d9f7b24e14adee267eb55
+    app-id: wx7221212655a2ee46
+    app-secret: 1e7b7ff0237557ea4a7e4099c88d66e3
     msg-data-format: JSON
 
 # MinIO 配置
